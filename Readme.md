@@ -35,18 +35,11 @@ More details about jupyter with conda env [here](https://stackoverflow.com/a/580
 
 Docker image  might be created on demand to simplify the installation process. We also have remote linux servers for internal use
 
-# Workflow
-1. Fork
-2. Do whatever you want in the fork
-3. Create pull requests to make fixes/improvements in this repo if applicable
-4. Create a pull request to include your fork in the list below
-5. Strong results should be included in this repo if it does not require overcomplicating the base architecture
+# Experiments :
 
-# Recognized forks
-
-# TODO
-- [ ] Remove sources/targets with zero arrivals or departures before applying sinkhorn algorithm
-- [ ] Add experiments for the twostage model with stable dynamics, clean up the ipynb
-- [ ] Add requirements.txt or docker
-- [ ] Add all necessary `solve_cvxpy` implementations
-- [ ] Cover with tests
+1. Пример запуска экспериментов : python3 compare_methods.py.
+2. Модуль для запуска экспериментов src/test.py.
+3. Сохранение результатов экспериментов в директорию experiments_result происходит, если выставить флаг save=True в методе test.plot().
+4. В TransportationNetworks лежат датасеты городов. (загруженные из репозитория bstabler)
+5. Алгоритмы расположены в my_algs.py и algs.py.
+6. NFW вмержен в основной репозиторий mmo_tm.
