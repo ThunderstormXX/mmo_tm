@@ -68,7 +68,7 @@ def run_experiment(list_methods , model, city_name , max_iter) :
     return experiments
 
 # список графиков ==>> вывод и сохранение
-def plot( experiments , name_output_values , time_iters = False, loglog = False , save = False  ) :
+def plot( experiments , name_output_values , time_iters = False, loglog = False , save = False  , last_quantile = 1) :
     color_generator = plt.cm.get_cmap('tab20', len(experiments))
     colors = [color_generator(i) for i in np.linspace(0, 1, len(experiments))]
     time = datetime.datetime.now().time().strftime("%H:%M")
@@ -80,14 +80,20 @@ def plot( experiments , name_output_values , time_iters = False, loglog = False 
         for e,name_values in enumerate(name_output_values) :
             values = result[name_values]
             if time_iters :
-                iters = result['time_log']
+                iters = np.array(result['time_log']) - result['time_log'][0]
+                # print(iters)
+                if len(iters) != len(values):
+                    iters = np.linspace(iters[0] , iters[-1] , len(values))
             else :
                 iters = np.arange(max_iter)
             plt.subplot(1, len(name_output_values), e+1)
             
             if name_values == 'primal' :
-                iters = iters[-int(len(iters)/2):]
-                values = values[-int(len(values)/2):]
+                iters = iters[-int(len(iters)/last_quantile):]
+                values = values[-int(len(values)/last_quantile):]
+
+
+
             if loglog == False :
                 plt.plot(iters, values , color =colors[col_id] ,label = name)
                 plt.yscale('log')

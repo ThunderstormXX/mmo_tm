@@ -11,6 +11,7 @@ def frank_wolfe(
     model: BeckmannModel,
     eps_abs: float,
     max_iter: int = 10000,  # 0 for no limit (some big number)
+    max_time: int = 60 ,
     times_start: Optional[np.ndarray] = None,
     stop_by_crit: bool = True,
     use_tqdm: bool = True,
@@ -23,7 +24,10 @@ def frank_wolfe(
     # init flows, not used in averaging
     if times_start is None:
         times_start = model.graph.ep.free_flow_times.a.copy()
+
+    
     flows_averaged = model.flows_on_shortest(times_start)
+
 
     max_dual_func_val = -np.inf
     dgap_log = []
@@ -38,7 +42,8 @@ def frank_wolfe(
     )
     # steps = []
     for k in rng:
-        
+        beforetime = time.time()
+
         times = model.tau(flows_averaged)
         flows = model.flows_on_shortest(times)
 
@@ -51,10 +56,16 @@ def frank_wolfe(
         # dgap_log.append(times @ (flows_averaged - flows))  # FW gap
         
         
-        flows_averaged = (
-            flows if k == 0 else stepsize * flows + (1 - stepsize) * flows_averaged
-        )
+        flows_averaged = stepsize * flows + (1 - stepsize) * flows_averaged
+        # flows_averaged = (
+        #     flows if k == 0 else stepsize * flows + (1 - stepsize) * flows_averaged
+        # )
 
+        
+        aftertime = time.time()
+        time_log.append((time_log[-1] if len(time_log) > 0 else 0 ) + aftertime - beforetime )
+        
+        
         dual_val = model.dual(times, flows)
         max_dual_func_val = max(max_dual_func_val, dual_val)
         # print(dual_val ,max_dual_func_val)
@@ -67,9 +78,10 @@ def frank_wolfe(
         dgap_log.append(primal - max_dual_func_val)
         # print((primal - max_dual_func_val)/max_dual_func_val)
         relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val)
-        time_log.append(time.time())
-
         
+        if time_log[-1] > max_time:
+            break
+
         if stop_by_crit and dgap_log[-1] <= eps_abs:
             optimal = True
             break
@@ -104,19 +116,24 @@ def N_conjugate_frank_wolfe(
 
     max_dual_func_val = -np.inf
     dgap_log = []
-    time_log = []
+    time_log = [time.time()]
     primal_log = []
     relative_gap_log = []
 
     times = model.tau(flows)
+
+    beforetime = time.time()
     flows = model.flows_on_shortest(times)
+    
     dual_val = model.dual(times, flows)
     max_dual_func_val = max(max_dual_func_val, dual_val)
     primal = model.primal(flows)
     primal_log.append(primal)
     dgap_log.append(primal - max_dual_func_val)
     relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val)
-    time_log.append(time.time())
+
+    aftertime = time.time()
+    time_log.append(time_log[-1] + aftertime - beforetime)
 
     rng = (
         range(1,1_000_000)
@@ -131,7 +148,7 @@ def N_conjugate_frank_wolfe(
     gamma = 1
     epoch = 0
     for k in rng:
-        
+        beforetime = time.time()
         if gamma > 0.99999 :
         # if gamma < 0.0001:
             epoch = 0
@@ -221,8 +238,9 @@ def N_conjugate_frank_wolfe(
         primal_log.append(primal)
         dgap_log.append(primal - max_dual_func_val)
         relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val)
-        time_log.append(time.time())
-
+    
+        aftertime = time.time()
+        time_log.append(time_log[-1] + aftertime - beforetime)
         if stop_by_crit and dgap_log[-1] <= eps_abs:
             optimal = True
             break
@@ -490,5 +508,244 @@ def cyclic(
         flows,
         traffic_mat,
         (dgap_log, cons_log, np.array(time_log) - time_log[0]),
+        optimal,
+    )
+
+
+def stochastic_correspondences_frank_wolfe(
+    model: BeckmannModel,
+    eps_abs: float,
+    max_iter: int = 10000,  # 0 for no limit (some big number)
+    max_time: int = 60 ,
+    times_start: Optional[np.ndarray] = None,
+    stop_by_crit: bool = True,
+    use_tqdm: bool = True,
+    linesearch: bool = False ,
+    weighted: bool = False ,
+    count_random_correspondences: int = 5 , 
+) -> tuple:
+    """One iteration == 1 shortest paths call"""
+
+    optimal = False
+
+    # init flows, not used in averaging
+    if times_start is None:
+        times_start = model.graph.ep.free_flow_times.a.copy()
+
+    max_dual_func_val = -np.inf
+    dgap_log = []
+    time_log = []
+
+    relative_gap_log = []
+    primal_log = []
+
+    rng = (
+        range(1_000_000)
+        if max_iter == 0
+        else tqdm(range(max_iter), disable=not use_tqdm)
+    )
+    
+    flows_averaged, storage = model.flows_on_shortest(times_start, return_flows_by_sources=True)
+    # print(model.primal(flows_averaged))
+    # print(model.dual(times_start , flows_averaged))
+    # steps = []
+    # print(np.sum(sum([value for value in storage.values() ])), sum(flows_averaged))
+
+    sources = model.correspondences.sources
+    count_sources = len(sources)
+    # print(sources)
+
+
+    node_traffic = model.correspondences.node_traffic_mat
+    weights = np.sum(node_traffic, axis = -1)[:len(sources)] 
+    weights /= np.sum(weights)
+    
+    # raise Exception('TEST')
+    # flows_averaged = np.zeros(len(times_start))
+
+    # k = -1
+    # while len(storage.keys()) < len(sources) or k < rng:
+    
+    # print(len(weights),weights)
+    # print(len(source), sources)
+    
+    for k in rng:
+        beforetime = time.time()
+
+        times = model.tau(flows_averaged)
+
+        if weighted:
+            source = np.random.choice(sources, size = (count_random_correspondences,), replace=False, p= weights)
+        else:
+            source = np.random.choice(sources, size = (count_random_correspondences,), replace=False)
+        
+        
+        # print(source)
+        flows, flows_by_sources = model.flows_on_shortest(times, sources_indexes=source, return_flows_by_sources=True )
+
+        # full_flows, flows_by_sources = model.flows_on_shortest(times, return_flows_by_sources=True )
+
+
+        # print(flows == full_flows)
+
+        # print('sum flows of shortst:' , np.sum(flows) , np.sum(sum([value for value in flows_by_sources.values() ])))
+        storage_flows = np.zeros_like(flows)
+        for key in source:
+            # print(f'key {key} : storage value  {np.sum(storage[key])}')
+            # print(f'key {key} : shortest value  {np.sum(flows_by_sources[key])}')
+            storage_flows += storage[key]
+
+        # print(0 <= flows_averaged + 0.5*( flows - storage_flows) )
+
+
+        # raise Exception('Test 2')
+        if linesearch :
+            # flows_averaged - storage_flows + storage_flows*(1-y) + y*flows = flows_averaged + y*( flows - storage_flows ) 
+            res = minimize_scalar( lambda y : model.primal(flows_averaged + y*( flows - storage_flows )) , bounds = (0.0,1.0) , tol = 1e-12 )
+            stepsize = res.x
+            # print(gamma)
+        else :
+            stepsize = 2.0/(k + 2) 
+
+        
+        flows_averaged = flows_averaged + stepsize*( flows - storage_flows )
+        
+
+        for key in source:
+            storage[key] = (1 - stepsize) * storage[key] + stepsize * flows_by_sources[key]
+
+        aftertime = time.time()
+        time_log.append((time_log[-1] if len(time_log) > 0 else 0 ) + aftertime - beforetime )        
+        
+        
+        primal = model.primal(flows_averaged)
+        primal_log.append(primal)
+        
+        if k % int( count_sources /count_random_correspondences) == 0:
+            dual_val = model.dual(times, model.flows_on_shortest(times))
+            max_dual_func_val = max(max_dual_func_val, dual_val)
+            dgap_log.append(primal - max_dual_func_val)
+            relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val) 
+        
+        if time_log[-1] > max_time:
+            break
+        
+        if stop_by_crit and dgap_log[-1] <= eps_abs:
+            optimal = True
+            break
+        
+    return (
+        times,
+        flows_averaged,
+        (dgap_log, np.array(time_log) - time_log[0] , {'primal': primal_log , 'relative_gap' : relative_gap_log} ),
+        optimal,
+    )
+
+def stochastic_correspondences_averaging_frank_wolfe(
+    model: BeckmannModel,
+    eps_abs: float,
+    max_iter: int = 10000,  # 0 for no limit (some big number)
+    max_time: int = 60 ,
+    times_start: Optional[np.ndarray] = None,
+    stop_by_crit: bool = True,
+    use_tqdm: bool = True,
+    linesearch: bool = False ,
+    weighted: bool = False ,
+    count_random_correspondences: int = 5 , 
+) -> tuple:
+    """One iteration == 1 shortest paths call"""
+
+    optimal = False
+
+    # init flows, not used in averaging
+    if times_start is None:
+        times_start = model.graph.ep.free_flow_times.a.copy()
+
+    max_dual_func_val = -np.inf
+    dgap_log = []
+    time_log = []
+
+    relative_gap_log = []
+    primal_log = []
+
+    rng = (
+        range(1_000_000)
+        if max_iter == 0
+        else tqdm(range(max_iter), disable=not use_tqdm)
+    )
+    
+    flows_averaged, storage = model.flows_on_shortest(times_start, return_flows_by_sources=True)
+    full_storage_flow = flows_averaged
+    # print(model.primal(flows_averaged))
+    # print(model.dual(times_start , flows_averaged))
+    # steps = []
+    # print(np.sum(sum([value for value in storage.values() ])), sum(flows_averaged))
+    sources = model.correspondences.sources
+    count_sources = len(sources)
+    # print(sources)
+
+    node_traffic = model.correspondences.node_traffic_mat
+    weights = np.sum(node_traffic, axis = -1) 
+    weights /= np.sum(weights)
+    
+    # while len(storage.keys()) < len(sources) or k < rng:
+    for k in rng:
+        beforetime = time.time()
+
+        times = model.tau(flows_averaged)
+        if weighted:
+            source = np.random.choice(sources, size = (count_random_correspondences,), replace=False, p= weights)
+        else:
+            source = np.random.choice(sources, size = (count_random_correspondences,), replace=False)
+        
+        # source = sources
+        # print(source)
+        flows, flows_by_sources = model.flows_on_shortest(times, sources_indexes=source, return_flows_by_sources=True )
+
+        # full_flows, flows_by_sources = model.flows_on_shortest(times, return_flows_by_sources=True )
+
+
+        # print(flows == full_flows)
+
+        # print('sum flows of shortst:' , np.sum(flows) , np.sum(sum([value for value in flows_by_sources.values() ])))
+        sub_storage_flows = np.zeros_like(flows)
+        for key in source:
+            sub_storage_flows += storage[key]
+            storage[key] = flows_by_sources[key] # update storage shortest paths
+
+        full_storage_flow = full_storage_flow + ( flows - sub_storage_flows ) # update full storage flows
+        
+        if linesearch : # step to storage direction
+            res = minimize_scalar( lambda y : model.primal(flows_averaged + y*( full_storage_flow - flows_averaged )) , bounds = (0.0,1.0) , tol = 1e-12 )
+            stepsize = res.x
+        else :
+            stepsize = 2.0/(k + 2) 
+
+        # dgap_log.append(times @ (flows_averaged - flows))  # FW gap
+        
+        flows_averaged = flows_averaged + stepsize*( full_storage_flow - flows_averaged )
+        
+        aftertime = time.time()
+        time_log.append((time_log[-1] if len(time_log) > 0 else 0 ) + aftertime - beforetime )
+
+        
+        primal = model.primal(flows_averaged)
+        primal_log.append(primal)
+        if k % int( count_sources /count_random_correspondences) == 0:
+            dual_val = model.dual(times, model.flows_on_shortest(times))
+            max_dual_func_val = max(max_dual_func_val, dual_val)
+            dgap_log.append(primal - max_dual_func_val)
+            relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val) 
+
+        if time_log[-1] > max_time:
+            break
+        if stop_by_crit and dgap_log[-1] <= eps_abs:
+            optimal = True
+            break
+        
+    return (
+        times,
+        flows_averaged,
+        (dgap_log, np.array(time_log) - time_log[0] , {'primal': primal_log , 'relative_gap' : relative_gap_log} ),
         optimal,
     )

@@ -50,6 +50,8 @@ def flows_on_shortest_gt(
     corrs: Correspondences,
     weights: gt.EdgePropertyMap,
     return_distance_mat: bool = False,
+    sources_indexes: int = None,
+    return_flows_by_sources: bool = False , 
 ) -> Union[tuple[np.ndarray, np.ndarray], np.ndarray]:
     """Returns flows on edges for each ij-pair
     (obtained from flows on shortest paths w.r.t given weights(costs))
@@ -70,19 +72,35 @@ def flows_on_shortest_gt(
 
     if return_distance_mat:
         distance_mat = np.zeros((sources.size, targets.size))
+
+    if return_flows_by_sources:
+        flows_by_sources = dict()
+
+
+
     for i, source in enumerate(sources):  # i = index of source in traffic_mat
+        if sources_indexes is not None and i not in sources_indexes:
+            continue        
         dist_map, pred_map = shortest_distance(
             graph, source=source, target=targets, weights=weights, pred_map=True
         )
-        flows_on_shortest_e += sum_flows_from_tree(
+        value = sum_flows_from_tree(
             source=source,
             targets=targets,
             pred_map_arr=np.array(pred_map.a),
             traffic_mat_row=traffic_mat[i],
             edge_to_ind=edge_to_ind,
         )
+
+        if return_flows_by_sources:
+            flows_by_sources[source] = value
+
+        flows_on_shortest_e += value
         if return_distance_mat:
             distance_mat[i] = dist_map
+
+    if return_flows_by_sources:
+        return flows_on_shortest_e , flows_by_sources
 
     return (
         (flows_on_shortest_e, distance_mat)

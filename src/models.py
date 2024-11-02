@@ -87,7 +87,7 @@ class TrafficModel(Model, ABC):
     
     
     def flows_on_shortest(
-        self, times: np.ndarray, return_distance_mat: bool = False
+        self, times: np.ndarray, return_distance_mat: bool = False, sources_indexes: int = None, return_flows_by_sources: bool = False
     ) -> Union[tuple[np.ndarray, np.ndarray], np.ndarray]:
         """Get edge flows distribution for given edge costs, if all agents use the shortest paths
         May also return distance matrix if the flag is set
@@ -98,6 +98,8 @@ class TrafficModel(Model, ABC):
             self.correspondences,
             maybe_create_and_get_times_ep(self.graph, times),
             return_distance_mat,
+            sources_indexes=sources_indexes,
+            return_flows_by_sources=return_flows_by_sources
         )
 
     def dual(self, times, flows_subgd) -> float:
