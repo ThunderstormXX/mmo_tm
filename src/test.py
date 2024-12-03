@@ -85,7 +85,7 @@ def plot( experiments , name_output_values , time_iters = False, loglog = False 
                 if len(iters) != len(values):
                     iters = np.linspace(iters[0] , iters[-1] , len(values))
             else :
-                iters = np.arange(max_iter)
+                iters = np.arange(len(values))
             plt.subplot(1, len(name_output_values), e+1)
             
             if name_values == 'primal' :

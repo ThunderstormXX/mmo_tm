@@ -99,6 +99,7 @@ def N_conjugate_frank_wolfe(
     model: BeckmannModel,
     eps_abs: float,
     max_iter: int = 100,  # 0 for no limit (some big number)
+    max_time: int = 60 , 
     times_start: Optional[np.ndarray] = None,
     stop_by_crit: bool = True,
     use_tqdm: bool = True,
@@ -116,7 +117,7 @@ def N_conjugate_frank_wolfe(
 
     max_dual_func_val = -np.inf
     dgap_log = []
-    time_log = [time.time()]
+    time_log = []
     primal_log = []
     relative_gap_log = []
 
@@ -133,7 +134,7 @@ def N_conjugate_frank_wolfe(
     relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val)
 
     aftertime = time.time()
-    time_log.append(time_log[-1] + aftertime - beforetime)
+    time_log.append((time_log[-1] if len(time_log) > 0 else 0) + aftertime - beforetime)
 
     rng = (
         range(1,1_000_000)
@@ -240,7 +241,7 @@ def N_conjugate_frank_wolfe(
         relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val)
     
         aftertime = time.time()
-        time_log.append(time_log[-1] + aftertime - beforetime)
+        time_log.append((time_log[-1] if len(time_log) > 0 else 0) + aftertime - beforetime)
         if stop_by_crit and dgap_log[-1] <= eps_abs:
             optimal = True
             break
@@ -747,5 +748,232 @@ def stochastic_correspondences_averaging_frank_wolfe(
         times,
         flows_averaged,
         (dgap_log, np.array(time_log) - time_log[0] , {'primal': primal_log , 'relative_gap' : relative_gap_log} ),
+        optimal,
+    )
+
+def stochastic_correspondences_n_conjugate_frank_wolfe(
+    model: BeckmannModel,
+    eps_abs: float,
+    max_iter: int = 100,  # 0 for no limit (some big number)
+    max_time: int = 60 ,
+    times_start: Optional[np.ndarray] = None,
+    stop_by_crit: bool = False,
+    use_tqdm: bool = True,
+    linesearch : bool = False ,
+    cnt_conjugates : int = 3, 
+    count_random_correspondences: int = 1,
+) -> tuple:
+    """One iteration == 1 shortest paths call"""
+
+    optimal = False
+
+    # init flows, not used in averaging
+    if times_start is None:
+        times_start = model.graph.ep.free_flow_times.a.copy()
+    flows = model.flows_on_shortest(times_start)
+
+    max_dual_func_val = -np.inf
+    dgap_log = []
+    time_log = []
+    primal_log = []
+    relative_gap_log = []
+
+
+    rng = (
+        range(1,1_000_000)
+        if max_iter == 0
+        else tqdm(range(1,max_iter), disable=not use_tqdm)
+    )
+
+    
+    flows, storage = model.flows_on_shortest(times_start, return_flows_by_sources=True)
+    sources = model.correspondences.sources
+    count_sources = len(sources)
+    node_traffic = model.correspondences.node_traffic_mat
+
+    # raise Exception('AASDd')
+
+    gamma = 1.0
+    d_list = []
+    S_list = []
+    flows_by_sources_list = []
+    gamma_list = []
+    gamma = 1
+    epoch = 0
+    for k in rng:
+        print('Iteration : ',k)
+        
+        # print(len(S_list) , len(flows_by_sources_list))
+        beforetime = time.time()
+        if gamma > 0.99999 :
+            epoch = 0
+            S_list = []
+            d_list = []
+            flows_by_sources_list = []
+
+
+        if k == 1  or epoch == 0:
+            epoch  = epoch + 1
+            t = model.tau(flows)
+            
+            ### Original NFW:
+            # sk_FW = model.flows_on_shortest(t) --> s_sk_FW = .. (stochastic sk FW)    
+            # dk = sk_FW - flows --> s_sk_FW - storage_flows
+            ###
+
+            ### SNFW
+            source = np.random.choice(sources, size = (count_random_correspondences,), replace=False)
+            sk_FW, flows_by_sources_FW = model.flows_on_shortest(t, sources_indexes=source, return_flows_by_sources=True )
+            storage_flows = np.zeros_like(sk_FW)
+            for key in source:
+                storage_flows += storage[key]
+            sk = sk_FW
+            dk = sk - storage_flows 
+            flows_by_sources = flows_by_sources_FW
+            ###
+
+            d_list.append(dk)
+            S_list.append(sk_FW)
+
+            ### SNFW
+            flows_by_sources_list.append(flows_by_sources)
+            ###
+        else :
+            t = model.tau(flows)
+            
+            ### ORIGINAL NFW
+            # sk_FW = model.flows_on_shortest(t)
+            # dk_FW = sk_FW - flows
+            ###
+            
+            ### SNFW
+            source = np.random.choice(sources, size = (count_random_correspondences,), replace=False)
+            sk_FW, flows_by_sources_FW = model.flows_on_shortest(t, sources_indexes=source, return_flows_by_sources=True )
+            storage_flows = np.zeros_like(sk_FW)
+            for key in source:
+                storage_flows += storage[key]
+            dk_FW = sk_FW - storage_flows 
+            ###
+
+            hessian = model.diff_tau(flows)
+            
+            B = np.sum(d_list*hessian*d_list    , axis=1)
+            A = np.sum(d_list*hessian*dk_FW     , axis=1)    
+            N = len(B)
+            betta = [-1]*(N+1)
+            betta_sum = 0
+            # delta = 0.0001
+            for m in range(N,0,-1) :
+                betta[m] = -A[-m]/(B[-m]*(1- gamma_list[-m])) + betta_sum*gamma_list[-m]/(1-gamma_list[-m]) 
+                if betta[m] < 0 :
+                    betta[m] = 0
+                else :
+                    betta_sum = betta_sum + betta[m]
+            alpha_0 = 1/(1+betta_sum)
+            alpha = np.array(betta)[1:] * alpha_0
+            alpha = alpha[::-1]
+            sk = alpha_0*sk_FW + np.sum(alpha*np.array(S_list).T , axis=1)
+            
+            ### SNFW
+            # we need to get dictionary, where dict[corr_i] = sk[corr_i]
+            # \Sum alpha_i * S_list_i
+            # + alpha_0 * sk_FW
+            # print(len(alpha))
+            # print(len(S_list))
+            # print(len(flows_by_sources_list))
+            flows_by_sources = dict()
+            for alpha_i, flows_by_sources_temp in zip(alpha, flows_by_sources_list):
+                for key in flows_by_sources_temp.keys():
+                    value = alpha_i*flows_by_sources_temp[key]
+                    if key not in flows_by_sources.keys():
+                        flows_by_sources[key] = value
+                    else:
+                        flows_by_sources[key] += value
+            
+            for key in flows_by_sources_FW.keys():
+                value = alpha_0*flows_by_sources_FW[key]
+                if key not in flows_by_sources.keys():
+                    flows_by_sources[key] = value
+                else:
+                    flows_by_sources[key] += value
+            # print('CHECK correct S_LIST:')
+            # for kek1 , kek2 in zip(S_list , flows_by_sources_list):
+            #     print( np.sum(kek1 != np.array([value for value in kek2.values()]).sum(axis = 0) ) )
+            # print('STOP CORRECT')
+            # print( np.sum(sk_FW != np.array([value for value in flows_by_sources_FW.values()]).sum(axis = 0) ) )
+            # print('Test flows by sources ' , sk - np.array([value for value in flows_by_sources.values()]).sum(axis = 0) )            
+            ###
+
+            storage_flows = np.zeros_like(flows)
+            for key in flows_by_sources.keys():
+                storage_flows += storage[key]
+            
+            dk = sk - storage_flows
+
+            d_list.append(dk)
+            S_list.append(sk)
+
+            ### SNFW
+            flows_by_sources_list.append(flows_by_sources)
+            ###
+            
+            epoch = epoch + 1
+            if epoch > cnt_conjugates  :
+                d_list.pop(0)
+                S_list.pop(0)
+                ### SNFW
+                flows_by_sources_list.pop(0)
+                ###
+                gamma_list.pop(0)
+
+        if linesearch :
+            res = minimize_scalar( lambda y : model.primal(flows + y*dk) , bounds = (0.0,1.0) , tol = 1e-12 )
+            gamma = res.x
+        else :
+            gamma = 2.0/(k + 2)
+        
+        gamma_list.append(gamma)
+        
+        # print('Test flows by sources ' , sk - np.array([value for value in flows_by_sources.values()]).sum(axis = 0) )
+        # print('BEFORE: ' , flows - np.array([value for value in storage.values()]).sum(axis = 0) )
+        # print('BEFORE:', sk != 0)
+
+        print('Check dk:', dk -  )
+
+        # flows = flows + gamma*(sk - storage_flows)
+        flows = flows + gamma*dk 
+
+
+        ### SNFW update storage
+        for key in flows_by_sources.keys():
+            storage[key] = (1 - gamma) * storage[key] + gamma * flows_by_sources[key]
+        
+        # print('AFTER: ' , flows - np.array([value for value in storage.values()]).sum(axis = 0) )
+        
+
+        aftertime = time.time()
+
+        time_log.append((time_log[-1] if len(time_log) > 0 else 0 ) + aftertime - beforetime )
+
+
+        
+        primal = model.primal(flows)
+        primal_log.append(primal)
+        if k % int( count_sources /count_random_correspondences) == 0:
+            dual_val = model.dual(t, model.flows_on_shortest(t))
+            max_dual_func_val = max(max_dual_func_val, dual_val)
+            dgap_log.append(primal - max_dual_func_val)
+            relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val) 
+        # print(max_time , time_log[-1])
+        if time_log[-1] > max_time:
+            break
+        if stop_by_crit and dgap_log[-1] <= eps_abs:
+            optimal = True
+            break
+
+    return (
+        t,
+        flows,
+        (dgap_log, np.array(time_log) - time_log[0] , {'primal' : primal_log , 'relative_gap': relative_gap_log}),
         optimal,
     )
