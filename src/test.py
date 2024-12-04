@@ -25,6 +25,7 @@ import pickle
 import datetime
 
 
+
 # по названию города ==> модель и таблицу графа
 def init_city(networks_path ,folder ,net_name ,traffic_mat_name ) :
     ##LOAD DATA
@@ -132,6 +133,7 @@ def display(filename , last_iters = 0 ) :
     plt.legend()
     plt.yscale('log')
     plt.show()
+
 
 
 # display('./experiments_results/Frank Wolfe_SiouxFalls_100iters.csv' , 10)

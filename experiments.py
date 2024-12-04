@@ -247,17 +247,21 @@ traffic_mat_names.append("SiouxFalls_trips")
 
 
 
-
 for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_names):
     ## LOAD CITY 
     beckmann_model , city_info = test.init_city(networks_path=networks_path ,folder=folder ,net_name=net_name,traffic_mat_name=traffic_mat_name)
     eps_abs = city_info['eps_abs']
 
+
+
+
     print('Number of sources' , len(beckmann_model.correspondences.sources))
     num_of_sources = len(beckmann_model.correspondences.sources)
     node_traffic = beckmann_model.correspondences.node_traffic_mat
-
-    max_iter = 6
+    # print(node_traffic)
+    # print(node_traffic.shape)
+    # raise Exception('TESt')
+    max_iter = 100
 
     max_time = 1200
 
@@ -266,7 +270,7 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
     list_methods = []
 
 
-    for cnt in [ int(num_of_sources/1.5)]:
+    for cnt in [ int(num_of_sources/2 ) ]:
         # list_methods.append((stochastic_correspondences_frank_wolfe ,f'stochastic correspondences FW linesearch corrs = {cnt/ num_of_sources}' , 
         #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True, 'count_random_correspondences': cnt }  ))
         
@@ -290,7 +294,7 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
 
     # raise Exception('ad')
     # #DISPLAY RESULTS
-    # test.plot( experiments , name_output_values=['relative_gap'] , save=True  ,time_iters=False)
+    test.plot( experiments , name_output_values=['primal'] , save=True  ,time_iters=False)
     # test.plot( experiments , name_output_values=['relative_gap'] , save=True  ,time_iters=False, loglog = False)
 # test.plot( experiments , name_output_values=['primal', 'relative_gap'] , save=False  ,time_iters=False)
 # test.plot( experiments , name_output_values=['primal'] , save=False  ,time_iters=True,loglog=False,last_quantile=1)

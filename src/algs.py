@@ -6,6 +6,7 @@ from tqdm import tqdm
 from scipy.optimize import minimize_scalar
 from src.models import TrafficModel, BeckmannModel, TwostageModel, Model
 
+from src.utils import *
 
 def frank_wolfe(
     model: BeckmannModel,
@@ -60,6 +61,12 @@ def frank_wolfe(
         # flows_averaged = (
         #     flows if k == 0 else stepsize * flows + (1 - stepsize) * flows_averaged
         # )
+
+
+        # ## TEST FLOW CORRECT
+        # is_correct , corrects = check_correct_flow(flows_averaged, model )
+        # print(is_correct,  corrects)
+        # raise Exception('TEST')
 
         
         aftertime = time.time()
@@ -547,6 +554,7 @@ def stochastic_correspondences_frank_wolfe(
     )
     
     flows_averaged, storage = model.flows_on_shortest(times_start, return_flows_by_sources=True)
+
     # print(model.primal(flows_averaged))
     # print(model.dual(times_start , flows_averaged))
     # steps = []
@@ -598,6 +606,19 @@ def stochastic_correspondences_frank_wolfe(
 
         # print(0 <= flows_averaged + 0.5*( flows - storage_flows) )
 
+        # test_flow = np.zeros_like(flows)
+        # for key in storage.keys():
+        #     if key in flows_by_sources.keys():
+        #         test_flow += flows_by_sources[key]
+        #     else:
+        #         test_flow += storage[key]
+        # print('TEST FEASIBLE sk_1 + storage_B')
+        # is_correct , corrects = check_correct_flow(test_flow, model )
+        # print(is_correct)
+        # print(corrects)
+        # if not is_correct:
+        #     raise Exception('TEST')
+    
 
         # raise Exception('Test 2')
         if linesearch :
@@ -803,6 +824,12 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
     for k in rng:
         print('Iteration : ',k)
         
+        # print('TEST STORAGE')
+        # test_flow = np.zeros_like(flows)
+        # for k, v in storage.items():
+        #     test_flow += v
+        # print(test_flow - flows )
+
         # print(len(S_list) , len(flows_by_sources_list))
         beforetime = time.time()
         if gamma > 0.99999 :
@@ -810,7 +837,6 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
             S_list = []
             d_list = []
             flows_by_sources_list = []
-
 
         if k == 1  or epoch == 0:
             epoch  = epoch + 1
@@ -827,13 +853,26 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
             storage_flows = np.zeros_like(sk_FW)
             for key in source:
                 storage_flows += storage[key]
+            # по сути это вне ограничений, но можно вернуть 
+            # этот вектор в целевое множество прибавив к нему вектор 
+            # потоков по оставшимся коррепонденциям в предыдущей точке
             sk = sk_FW
-            dk = sk - storage_flows 
+            # Однако dk -- корректно (умный ноль в виде +- потоков по остальным корреспонденциям) 
+            dk = sk - storage_flows  
             flows_by_sources = flows_by_sources_FW
             ###
 
+            ### TEST PART
+            # sk_flow = np.zeros_like(flows)
+            # for k in storage.keys():
+            #     if k in flows_by_sources.keys():
+            #         sk_flow += flows_by_sources[k]
+            #     else:
+            #         sk_flow += storage[k]
+            # dk = sk_flow - flows
+
             d_list.append(dk)
-            S_list.append(sk_FW)
+            S_list.append(sk)
 
             ### SNFW
             flows_by_sources_list.append(flows_by_sources)
@@ -878,37 +917,80 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
             # we need to get dictionary, where dict[corr_i] = sk[corr_i]
             # \Sum alpha_i * S_list_i
             # + alpha_0 * sk_FW
-            # print(len(alpha))
+            # print(alpha , alpha_0)
             # print(len(S_list))
             # print(len(flows_by_sources_list))
-            flows_by_sources = dict()
-            for alpha_i, flows_by_sources_temp in zip(alpha, flows_by_sources_list):
-                for key in flows_by_sources_temp.keys():
-                    value = alpha_i*flows_by_sources_temp[key]
-                    if key not in flows_by_sources.keys():
-                        flows_by_sources[key] = value
-                    else:
-                        flows_by_sources[key] += value
             
-            for key in flows_by_sources_FW.keys():
-                value = alpha_0*flows_by_sources_FW[key]
-                if key not in flows_by_sources.keys():
-                    flows_by_sources[key] = value
-                else:
-                    flows_by_sources[key] += value
-            # print('CHECK correct S_LIST:')
-            # for kek1 , kek2 in zip(S_list , flows_by_sources_list):
-            #     print( np.sum(kek1 != np.array([value for value in kek2.values()]).sum(axis = 0) ) )
-            # print('STOP CORRECT')
-            # print( np.sum(sk_FW != np.array([value for value in flows_by_sources_FW.values()]).sum(axis = 0) ) )
-            # print('Test flows by sources ' , sk - np.array([value for value in flows_by_sources.values()]).sum(axis = 0) )            
-            ###
+
+            
+            flows_by_sources = sum_flow_dicts([flows_by_sources_FW] + list(flows_by_sources_list), weights = [alpha_0] + list(alpha))
+            
+            print('TEST LIST OF SK DICTS')
+            for flow_dict in flows_by_sources
+
+
+            # flows_by_sources = dict()
+            # for alpha_i, flows_by_sources_temp in zip(alpha, flows_by_sources_list):
+                
+            #     for key in flows_by_sources_temp.keys():
+                    
+            #         value = alpha_i*flows_by_sources_temp[key]
+            #         if key not in flows_by_sources.keys():
+            #             flows_by_sources[key] = value
+            #         else:
+            #             flows_by_sources[key] += value
+            
+            # for key in flows_by_sources_FW.keys():
+            #     value = alpha_0*flows_by_sources_FW[key]
+            #     if key not in flows_by_sources.keys():
+            #         flows_by_sources[key] = value
+            #     else:
+            #         flows_by_sources[key] += value
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            # print(sum(alpha) + alpha_0)
+            # print(flows_by_sources == flows_by_sources_FW)
+            ## TEST ALPHAS
+            # print(alpha , alpha_0)
+            # ### TEST
+            # print('TEST S_LIST:')
+            # test_flow = np.zeros_like(flows)
+            # for k, v in flows_by_sources.items():
+            #     test_flow += v
+            # print(test_flow - sk )
+            # print(len(flows_by_sources.keys()))
+            
+            ## TEST sk FEASIBLE
 
             storage_flows = np.zeros_like(flows)
             for key in flows_by_sources.keys():
                 storage_flows += storage[key]
-            
             dk = sk - storage_flows
+
+            # sk_flow = np.zeros_like(flows)
+            # for k in storage.keys():
+            #     if k in flows_by_sources.keys():
+            #         sk_flow += flows_by_sources[k]
+            #     else:
+            #         sk_flow += storage[k]
+            # dk = sk_flow - flows
+            # print( sk_flow - flows - dk) 
+            # raise Exception('TEST')
+
+            
 
             d_list.append(dk)
             S_list.append(sk)
@@ -926,6 +1008,21 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
                 ###
                 gamma_list.pop(0)
 
+        # ### TEST FEASIBLE flows
+        # print('TEST FEASIBLE flows')
+        # is_correct , corrects = check_correct_flow(flows, model )
+        # print(is_correct)
+        # print(corrects)
+        # if not is_correct:
+        #     raise Exception('TEST')
+
+
+        # new_flows = flows_A + flows_B + gamma * (sk_flows_A + sk_flows_B - flows_A - flows_B)
+        # sk_flows_B = flows_B
+        # new_flows = flows_A + flows_B + gamma * ( sk_flows_A - flows_A )
+        # new_flows = old_flows + gamma * dk
+
+
         if linesearch :
             res = minimize_scalar( lambda y : model.primal(flows + y*dk) , bounds = (0.0,1.0) , tol = 1e-12 )
             gamma = res.x
@@ -938,11 +1035,33 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
         # print('BEFORE: ' , flows - np.array([value for value in storage.values()]).sum(axis = 0) )
         # print('BEFORE:', sk != 0)
 
-        print('Check dk:', dk -  )
-
         # flows = flows + gamma*(sk - storage_flows)
-        flows = flows + gamma*dk 
+        flows = flows + gamma*dk
 
+        # ### TEST FEASIBLE sk_A + storage_B
+        test_flow = np.zeros_like(flows)
+        for key in storage.keys():
+            if key in flows_by_sources.keys():
+                test_flow += flows_by_sources[key]
+            else:
+                test_flow += storage[key]
+        print('TEST FEASIBLE sk_1 + storage_B')
+        is_correct , corrects = check_correct_flow(test_flow, model )
+        print(is_correct)
+        print(corrects)
+        if not is_correct:
+            raise Exception('TEST')
+
+        ## TEST FEASIBLE FLOWS
+        # print('TEST FEASIBLE FLOWS')
+        # is_correct , corrects = check_correct_flow(flows, model )
+        # print(is_correct,  corrects)
+        # raise Exception('TEST')        
+        # raise Exception('TEST')
+        # print('TEST PRIMAL > DUAL')
+        # primal = model.primal(flows)
+        # dual_val = model.dual(t, model.flows_on_shortest(t))
+        # print(primal - dual_val)
 
         ### SNFW update storage
         for key in flows_by_sources.keys():
@@ -958,6 +1077,7 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
 
         
         primal = model.primal(flows)
+        # print('Primal: ',primal)
         primal_log.append(primal)
         if k % int( count_sources /count_random_correspondences) == 0:
             dual_val = model.dual(t, model.flows_on_shortest(t))
