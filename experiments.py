@@ -261,7 +261,7 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
     # print(node_traffic)
     # print(node_traffic.shape)
     # raise Exception('TESt')
-    max_iter = 10
+    max_iter = 1000
 
     max_time = 1200
 
@@ -270,9 +270,12 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
     list_methods = []
 
 
-    for cnt in [ int(num_of_sources/2 ) ]:
-        # list_methods.append((stochastic_correspondences_frank_wolfe ,f'stochastic correspondences FW linesearch corrs = {cnt/ num_of_sources}' , 
-        #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True, 'count_random_correspondences': cnt }  ))
+    list_methods.append((N_conjugate_frank_wolfe ,f'NFW N = {N} ' , 
+        {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True}  ))
+
+    for cnt in [ int(num_of_sources/5 ) , int(num_of_sources/3 ), int(num_of_sources/2 ) ]:
+        list_methods.append((stochastic_correspondences_frank_wolfe ,f'stochastic correspondences FW linesearch corrs = {cnt/ num_of_sources}' , 
+            {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True, 'count_random_correspondences': cnt }  ))
         
         # list_methods.append((stochastic_correspondences_frank_wolfe ,f'stochastic correspondences FW linesearch weighted corrs = {cnt/ num_of_sources}' , 
         #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True, 'weighted': True, 'count_random_correspondences': cnt }  ))
@@ -280,8 +283,6 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
         # list_methods.append((frank_wolfe ,'frank_wolfe linesearch' , 
         #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'linesearch' : True, 'stop_by_crit': False} ))
 
-        # list_methods.append((N_conjugate_frank_wolfe ,f'NFW N = {N} ' , 
-        #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True}  ))
 
 
         list_methods.append((stochastic_correspondences_n_conjugate_frank_wolfe ,f'stochastic correspondences NFW N = {N} linesearch corrs = {cnt/ num_of_sources}' , 
@@ -294,7 +295,7 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
 
     # raise Exception('ad')
     # #DISPLAY RESULTS
-    test.plot( experiments , name_output_values=['primal'] , save=True  ,time_iters=False)
-    # test.plot( experiments , name_output_values=['relative_gap'] , save=True  ,time_iters=False, loglog = False)
+    # test.plot( experiments , name_output_values=['primal'] , save=True  ,time_iters=False)
+    test.plot( experiments , name_output_values=['relative_gap'] , save=True  ,time_iters=True, loglog = False)
 # test.plot( experiments , name_output_values=['primal', 'relative_gap'] , save=False  ,time_iters=False)
 # test.plot( experiments , name_output_values=['primal'] , save=False  ,time_iters=True,loglog=False,last_quantile=1)
