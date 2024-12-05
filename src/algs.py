@@ -913,56 +913,32 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
             alpha = alpha[::-1]
             sk = alpha_0*sk_FW + np.sum(alpha*np.array(S_list).T , axis=1)
             
-            ### SNFW
-            # we need to get dictionary, where dict[corr_i] = sk[corr_i]
-            # \Sum alpha_i * S_list_i
-            # + alpha_0 * sk_FW
-            # print(alpha , alpha_0)
-            # print(len(S_list))
-            # print(len(flows_by_sources_list))
-            
-
-            
-            flows_by_sources = sum_flow_dicts([flows_by_sources_FW] + list(flows_by_sources_list), weights = [alpha_0] + list(alpha))
-            
-            print('TEST LIST OF SK DICTS')
-            for flow_dict in flows_by_sources
-
-
-            # flows_by_sources = dict()
-            # for alpha_i, flows_by_sources_temp in zip(alpha, flows_by_sources_list):
-                
-            #     for key in flows_by_sources_temp.keys():
-                    
-            #         value = alpha_i*flows_by_sources_temp[key]
-            #         if key not in flows_by_sources.keys():
-            #             flows_by_sources[key] = value
-            #         else:
-            #             flows_by_sources[key] += value
-            
-            # for key in flows_by_sources_FW.keys():
-            #     value = alpha_0*flows_by_sources_FW[key]
-            #     if key not in flows_by_sources.keys():
-            #         flows_by_sources[key] = value
-            #     else:
-            #         flows_by_sources[key] += value
+            flows_by_sources = sum_flow_dicts_with_intersection([flows_by_sources_FW] + list(flows_by_sources_list), weights = [alpha_0] + list(alpha))
 
 
 
+            print('TEST SK + STORAGE FEASIBLE')
+            test_flows = full_flows_from_dict(sum_flow_dicts_without_intersection( [flows_by_sources , storage] ))
+            a,b = check_correct_flow(test_flows, model)
+            print(a ,b )
+            # raise Exception('TEST')
 
+            # print('TEST LIST OF SK DICTS')
+            # for flow_dict in flows_by_sources_list:
+            #     sk_A_storage_B = full_flows_from_dict(sum_flow_dicts_without_intersection( [flow_dict , storage] ))
+            #     # print(sum_flow_dicts_without_intersection( [flow_dict , storage] ))
+            #     a,b = check_correct_flow(sk_A_storage_B, model)
+            #     print(a ,b )
+            # raise Exception('TEST')
+        
+            # print('TEST flow by sources')
+            # for flow_dict in flows_by_sources_list:
+            #     test_flows = full_flows_from_dict(sum_flow_dicts_without_intersection( [flows_by_sources , storage] ))
+            #     # print(sum_flow_dicts_without_intersection( [flow_dict , storage] ))
+            #     a,b = check_correct_flow(test_flows, model)
+            #     print(a ,b )
+            # raise Exception('TEST')
 
-
-
-
-
-
-
-
-
-
-
-            # print(sum(alpha) + alpha_0)
-            # print(flows_by_sources == flows_by_sources_FW)
             ## TEST ALPHAS
             # print(alpha , alpha_0)
             # ### TEST
@@ -973,7 +949,8 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
             # print(test_flow - sk )
             # print(len(flows_by_sources.keys()))
             
-            ## TEST sk FEASIBLE
+            # ## TEST sk FEASIBLE
+            # is_correct, corrects - check_correct_flow(full_flows_from_dict())
 
             storage_flows = np.zeros_like(flows)
             for key in flows_by_sources.keys():
@@ -1008,13 +985,6 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
                 ###
                 gamma_list.pop(0)
 
-        # ### TEST FEASIBLE flows
-        # print('TEST FEASIBLE flows')
-        # is_correct , corrects = check_correct_flow(flows, model )
-        # print(is_correct)
-        # print(corrects)
-        # if not is_correct:
-        #     raise Exception('TEST')
 
 
         # new_flows = flows_A + flows_B + gamma * (sk_flows_A + sk_flows_B - flows_A - flows_B)
@@ -1038,19 +1008,27 @@ def stochastic_correspondences_n_conjugate_frank_wolfe(
         # flows = flows + gamma*(sk - storage_flows)
         flows = flows + gamma*dk
 
-        # ### TEST FEASIBLE sk_A + storage_B
-        test_flow = np.zeros_like(flows)
-        for key in storage.keys():
-            if key in flows_by_sources.keys():
-                test_flow += flows_by_sources[key]
-            else:
-                test_flow += storage[key]
-        print('TEST FEASIBLE sk_1 + storage_B')
-        is_correct , corrects = check_correct_flow(test_flow, model )
+        # ### TEST FEASIBLE flows
+        print('TEST FEASIBLE flows')
+        is_correct , corrects = check_correct_flow(flows, model )
         print(is_correct)
         print(corrects)
         if not is_correct:
             raise Exception('TEST')
+        
+        # ### TEST FEASIBLE sk_A + storage_B
+        # test_flow = np.zeros_like(flows)
+        # for key in storage.keys():
+        #     if key in flows_by_sources.keys():
+        #         test_flow += flows_by_sources[key]
+        #     else:
+        #         test_flow += storage[key]
+        # print('TEST FEASIBLE sk_1 + storage_B')
+        # is_correct , corrects = check_correct_flow(test_flow, model )
+        # print(is_correct)
+        # print(corrects)
+        # if not is_correct:
+        #     raise Exception('TEST')
 
         ## TEST FEASIBLE FLOWS
         # print('TEST FEASIBLE FLOWS')

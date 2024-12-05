@@ -261,7 +261,7 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
     # print(node_traffic)
     # print(node_traffic.shape)
     # raise Exception('TESt')
-    max_iter = 100
+    max_iter = 10
 
     max_time = 1200
 

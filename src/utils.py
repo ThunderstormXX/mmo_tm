@@ -42,6 +42,7 @@ def full_flows_from_dict( flows_dict ):
             flows = flows_dict[key]
         else:
             flows += flows_dict[key]
+    return flows
 
 def sum_flow_dicts( flow_dicts , weights = None):
     new_flow_dict = dict()
@@ -57,4 +58,46 @@ def sum_flow_dicts( flow_dicts , weights = None):
                 new_flow_dict[key] = weight * flow_dict[key]
             else:
                 new_flow_dict[key] += weight * flow_dict[key]
+    return new_flow_dict
+
+def sum_flow_dicts_without_intersection( flow_dicts , weights = None ):
+    new_flow_dict = dict()
+    current_keys = []
+    for i, flow_dict in enumerate(flow_dicts):
+        if weights is not None:
+            weight = weights[i]
+        else:
+            weight = 1
+
+        for key in flow_dict.keys():
+            if key not in current_keys:
+                new_flow_dict[key] = weight * flow_dict[key]
+                current_keys.append(key)
+    return new_flow_dict
+
+def sum_flow_dicts_with_intersection( flow_dicts , weights = None):
+    new_flow_dict = dict()
+    key_sum_weights = dict()
+    for i, flow_dict in enumerate(flow_dicts):
+        if weights is not None:
+            weight = weights[i]
+        else:
+            weight = 1
+
+        if weight != 0:
+            for key in flow_dict.keys():
+                if key not in new_flow_dict.keys():
+                    new_flow_dict[key] = weight * flow_dict[key]
+                else:
+                    new_flow_dict[key] += weight * flow_dict[key]
+            
+                if key not in key_sum_weights.keys():
+                    key_sum_weights[key] = weight 
+                else:
+                    key_sum_weights[key] += weight
+
+    for key in new_flow_dict.keys():
+        if key_sum_weights[key] != 0 :
+            new_flow_dict[key] /= key_sum_weights[key]
+
     return new_flow_dict
