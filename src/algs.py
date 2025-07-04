@@ -278,6 +278,8 @@ def ustm(
     dgap_log = []
     cons_log = []
     time_log = []
+    primal_log = []
+    relative_gap_log = []
 
     A_prev = 0.0
     # fft = model.graph.ep.free_flow_times.a
@@ -377,6 +379,10 @@ def ustm(
         cons_log += [cons] * (inner_iters_num * 2)
         time_log += [time.time()] * (inner_iters_num * 2)
 
+        primal_log.append(primal)
+        # if k % int( count_sources /count_random_correspondences) == 0:
+        relative_gap_log.append((primal - max_dual_func_val)/max_dual_func_val) 
+
         if stop_by_crit and dgap_log[-1] <= eps_abs and cons_log[-1] <= eps_cons_abs:
             optimal = True
             break
@@ -387,7 +393,7 @@ def ustm(
     return (
         t,
         primal_var_averaged,
-        (dgap_log, cons_log, np.array(time_log) - time_log[0]),
+        (dgap_log, np.array(time_log) - time_log[0], {'primal' : primal_log , 'relative_gap': relative_gap_log}),
         optimal,
     )
 
