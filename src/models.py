@@ -6,7 +6,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 from src.commons import Correspondences
-from src.cvxpy_solvers import solve_min_cost_concurrent_flow
+from src.cvxpy_solvers import solve_min_cost_concurrent_flow, solve_beckmann_model_cp
 from src.newton import newton
 
 from src.shortest_paths_gt import (
@@ -15,7 +15,7 @@ from src.shortest_paths_gt import (
     get_graph_props,
     distance_mat_gt,
 )
-from src.sinkhorn import Sinkhorn
+# import src.sinkhorn_gpu as sinkhorn
 import src.sinkhorn as sinkhorn
 
 
@@ -59,7 +59,7 @@ class Model(ABC):
 
     @abstractmethod
     def func_psigrad_primal(self, times) -> tuple[float, np.ndarray, np.ndarray]:
-        """Returns minus dual func value, gradient of \Psi (non-composite term),
+        """Returns minus dual func value, gradient of Psi (non-composite term),
         and corresponding primal variable value
            Needed for USTM
         """
@@ -74,18 +74,12 @@ class TrafficModel(Model, ABC):
         
         fft, mu, rho, caps = get_graph_props(self.graph)
         
-        # np.where(np.isinf(mu))
-        self.is_inf = np.where(rho == 0)
-        self.is_not_inf = ~np.isin(np.arange(len(rho)), self.is_inf)
-        
-        self.fft_is_zero = np.where((fft == 0) & (rho != 0))
-        self.fft_is_not_zero =  np.where((fft != 0) & (rho != 0))
+        mu_mask = mu == np.inf
+        rho_mask = rho == 0
+        fft_mask = fft == 0
+        # the degenerate case : cost does not idepend on the flow
+        self.all_cases = mu_mask + rho_mask + fft_mask 
 
-
-        assert (np.all(rho[self.is_inf] == 0 ))
-        # assert (np.all(rho[self.is_not_inf] == 0 ))
-    
-    
     def flows_on_shortest(
         self, times: np.ndarray, return_distance_mat: bool = False, sources_indexes: int = None, return_flows_by_sources: bool = False
     ) -> Union[tuple[np.ndarray, np.ndarray], np.ndarray]:
@@ -132,57 +126,57 @@ class TrafficModel(Model, ABC):
 
 class BeckmannModel(TrafficModel):
     """Dualized on the constraint that flows respect correspondences"""
+    def __init__(self, nx_graph: nx.DiGraph, correspondences: Correspondences):
+        super().__init__(nx_graph, correspondences)
+        self.graph_props = get_graph_props(self.graph)  # for some reason, this call is slow, so cache results
 
     def tau(self, flows):
-        fft, mu, rho, caps = get_graph_props(self.graph)
+        fft, mu, rho, caps = self.graph_props
         
         result = np.empty(len(mu))
-        result[self.is_inf] = fft[self.is_inf]*(1 + rho[self.is_inf])
-        result[self.is_not_inf] = fft[self.is_not_inf] * (1 + rho[self.is_not_inf] * (flows[self.is_not_inf] / caps[self.is_not_inf]) ** (1 / mu[self.is_not_inf]))
+        result[self.all_cases] = fft[self.all_cases]*(1 + rho[self.all_cases])
+        result[~self.all_cases] = fft[~self.all_cases] * (1 + rho[~self.all_cases] * (flows[~self.all_cases] / caps[~self.all_cases]) ** (1 / mu[~self.all_cases]))
         return result
 
     def diff_tau(self, flows):
         fft, mu, rho, caps = get_graph_props(self.graph)
         
         result = np.empty(len(mu))
-        result[self.is_inf] = 0
-        result[self.is_not_inf] = (1.0 / mu[self.is_not_inf]) * fft[self.is_not_inf] * rho[self.is_not_inf] * np.power(flows[self.is_not_inf] , (1.0 / mu[self.is_not_inf]) - 1.0 ) / np.power(caps[self.is_not_inf], 1.0 / mu[self.is_not_inf])
+         
+        result[self.all_cases] = 0
+        result[~self.all_cases] = (1.0 / mu[~self.all_cases]) * fft[~self.all_cases] * rho[~self.all_cases] * np.power(flows[~self.all_cases] , (1.0 / mu[~self.all_cases]) - 1.0 ) / np.power(caps[~self.all_cases], 1.0 / mu[~self.all_cases])
         return result
 
     def tau_inv(self, times):
-        fft, mu, rho, caps = get_graph_props(self.graph)
+        fft, mu, rho, caps = self.graph_props
         result = np.empty(len(mu))
-        result[self.is_inf] = 0
-        result[self.is_not_inf] = caps[self.is_not_inf] * ((times[self.is_not_inf] / fft[self.is_not_inf] - 1) / rho[self.is_not_inf]) ** mu[self.is_not_inf]
+        
+        result[self.all_cases] = 0
+        result[~self.all_cases] = caps[~self.all_cases] * ((times[~self.all_cases] / fft[~self.all_cases] - 1) / rho[~self.all_cases]) ** mu[~self.all_cases]
         return result
 
     def sigma(self, flows) -> np.ndarray:
-
-        fft, mu, rho, caps = get_graph_props(self.graph)
+        fft, mu, rho, caps = self.graph_props
         result = np.empty(len(mu))
-        result[self.is_inf] = fft[self.is_inf]*flows[self.is_inf]*(1 + rho[self.is_inf]) 
-        result[self.is_not_inf] = fft[self.is_not_inf] * flows[self.is_not_inf] * (1 + (rho[self.is_not_inf] / (1 + 1 / mu[self.is_not_inf])) * (flows[self.is_not_inf] / caps[self.is_not_inf]) ** (1 / mu[self.is_not_inf]))
+
+        result[self.all_cases] = fft[self.all_cases]*flows[self.all_cases]*(1 + rho[self.all_cases]) 
+        result[~self.all_cases] = fft[~self.all_cases] * flows[~self.all_cases] * (1 + (rho[~self.all_cases] / (1 + 1 / mu[~self.all_cases])) * (flows[~self.all_cases] / caps[~self.all_cases]) ** (1 / mu[~self.all_cases]))
         return result
 
 
     def sigma_star(self, times) -> np.ndarray:
-        fft, mu, rho, caps = get_graph_props(self.graph)
+        fft, mu, rho, caps = self.graph_props
 
         dt = np.maximum(0, times - fft)
 
         result = np.empty(len(mu))
 
-        # print( np.sum(caps[self.is_not_inf] <= 0 ) , np.sum(rho[self.is_not_inf] <= 0 ) , np.sum(mu[self.is_not_inf] <= 0) ,np.sum(fft[self.is_not_inf] <= 0) )
-
-
-        result[self.is_inf] = 0
-        # тут два случая : 1) rho != 0 and fft = 0 2) rho != 0 and fft != 0
-        result[self.fft_is_not_zero] = caps[self.fft_is_not_zero] * (dt[self.fft_is_not_zero] / (fft[self.fft_is_not_zero] * rho[self.fft_is_not_zero])) ** mu[self.fft_is_not_zero] * dt[self.fft_is_not_zero] / (1 + mu[self.fft_is_not_zero])
-        result[self.fft_is_zero] = 0
+        result[self.all_cases] = 0
+        result[~self.all_cases] = caps[~self.all_cases] * (dt[~self.all_cases] / (fft[~self.all_cases] * rho[~self.all_cases])) ** mu[~self.all_cases] * dt[~self.all_cases] / (1 + mu[~self.all_cases])
         return result
 
     def primal(self, flows: np.ndarray) -> float:   
-        return self.sigma(flows).sum()
+        return float(self.sigma(flows).sum())
 
     def composite(self, times: np.ndarray) -> float:
         return self.sigma_star(times).sum()
@@ -196,20 +190,26 @@ class BeckmannModel(TrafficModel):
         fft, mu, rho, caps = get_graph_props(self.graph)
 
         # rewrite t - t_0 + stepsize * tau_inv(t) = 0 as x - x_0 + a x^mu = 0
-        x_0 = (times - fft) / (fft * rho)
-        a = stepsize * caps / (fft * rho)
+
+        mask = ~self.all_cases  # non-degenerated edges
+        x_0 = (times - fft)[mask] / (fft * rho)[mask]
+        a = stepsize * caps[mask] / (fft * rho)[mask]
 
         x = newton(x_0_arr=x_0, a_arr=a, mu_arr=mu)
 
-        return fft * (rho * x + 1)
+        result = fft.copy()
+        result[mask] = fft[mask] * (rho[mask] * x + 1)
 
-    def solve_cvxpy(self, **solver_kwargs):
+        return result
+
+    def solve_cvxpy(self, **solver_kwargs) -> np.ndarray:
         """solver_kwargs: arguments for cvxpy's problem.solve()"""
-        # TODO: implement
-        return None
-        # flows_ie, costs, potentials, nonneg_duals = solve_beckmann(self.nx_graph, self.correspondences.traffic_mat,
-        #                                                            **solver_kwargs)
-        # return flows_ie, costs, potentials, nonneg_duals
+        flows_ei, potentials = solve_beckmann_model_cp(
+            self.correspondences.traffic_mat, self.nx_graph, **solver_kwargs
+        )
+        assert flows_ei is not None
+
+        return flows_ei.sum(axis=1)
 
 
 class SDModel(TrafficModel):
@@ -237,11 +237,11 @@ class SDModel(TrafficModel):
     def solve_cvxpy(self, **solver_kwargs):
         """solver_kwargs: arguments for cvxpy's problem.solve()"""
 
-        flows_ie, costs, potentials, nonneg_duals = solve_min_cost_concurrent_flow(
+        flows_ei, costs, potentials, nonneg_duals = solve_min_cost_concurrent_flow(
             self.nx_graph, self.correspondences.node_traffic_mat, **solver_kwargs
         )
         return (
-            flows_ie.sum(axis=0),
+            flows_ei.sum(axis=1),
             self.graph.ep.free_flow_times.a + costs,
             potentials,
             nonneg_duals,
@@ -260,12 +260,6 @@ class TwostageModel(Model):
         self.departures = departures
         self.arrivals = arrivals
         self.gamma = gamma
-        self.sinkhorn = Sinkhorn(
-            self.departures,
-            self.arrivals,
-            max_iter=int(1e5),
-            use_numba=len(departures) > 100,
-        )
 
         # previous solution to reuse as starting point
         # save it here, because entropy model is hidden from solver-side in case of USTM
@@ -274,7 +268,13 @@ class TwostageModel(Model):
     def solve_entropy_model(
         self, distance_mat
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        traffic_mat, self.lambda_l_prev, self.lambda_w_prev = self.sinkhorn.run(
+        """Calls sinkhorn to solve linear-entropy problem. Saves previous solution to reuse as starting point"""
+        snkh = sinkhorn.Sinkhorn(
+            departures=self.departures,
+            arrivals=self.arrivals,
+            max_iter=int(1e5),
+        )
+        traffic_mat, self.lambda_l_prev, self.lambda_w_prev = snkh.run(
             self.gamma * distance_mat, self.lambda_l_prev, self.lambda_w_prev
         )
         return traffic_mat, self.lambda_l_prev, self.lambda_w_prev
@@ -293,9 +293,12 @@ class TwostageModel(Model):
         )
 
     def primal(self, flows: np.ndarray, traffic_mat: np.ndarray) -> float:
+        zero_mask = traffic_mat == 0  # to make x * ln(x) = 0
+        tmp = traffic_mat.copy()
+        tmp[zero_mask] = 1
         return (
             self.gamma * self.traffic_model.primal(flows)
-            + (traffic_mat * np.log(traffic_mat)).sum()
+            + (traffic_mat * np.log(tmp)).sum()
         )
 
     def dual(
