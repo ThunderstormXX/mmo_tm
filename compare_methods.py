@@ -1,14 +1,21 @@
-import src.test as test
 from pathlib import Path
-from src.algs import subgd, ustm, frank_wolfe, cyclic
-# from src.my_algs import conjugate_frank_wolfe , Bi_conjugate_frank_wolfe , N_conjugate_frank_wolfe ,fukushima_frank_wolfe
-from src.algs import N_conjugate_frank_wolfe , stochastic_correspondences_frank_wolfe , stochastic_correspondences_averaging_frank_wolfe
 
 import numpy as np
 
+import src.test as test
+
+# from src.my_algs import conjugate_frank_wolfe , Bi_conjugate_frank_wolfe , N_conjugate_frank_wolfe ,fukushima_frank_wolfe
+from src.algs import (
+    N_conjugate_frank_wolfe,
+    cyclic,
+    frank_wolfe,
+    stochastic_correspondences_averaging_frank_wolfe,
+    stochastic_correspondences_frank_wolfe,
+    subgd,
+    ustm,
+)
+
 networks_path = Path("./TransportationNetworks")
-
-
 
 
 # folder = "SiouxFalls"
@@ -18,8 +25,8 @@ networks_path = Path("./TransportationNetworks")
 # folder = "Anaheim"
 # net_name = "Anaheim_net"
 # traffic_mat_name = "Anaheim_trips"
-    
-# Не работает (mu != inf , но rho = 0) (sigma * = ... / rho ...) 
+
+# Не работает (mu != inf , но rho = 0) (sigma * = ... / rho ...)
 # folders.append("Philadelphia")
 # net_names.append("Philadelphia_net")
 # traffic_mat_names.append("Philadelphia_trips")
@@ -57,7 +64,7 @@ networks_path = Path("./TransportationNetworks")
 # net_name = "friedrichshain-center_net"
 # traffic_mat_name = "friedrichshain-center_trips"
 
-# key error  в sum_flows_from_tree  
+# key error  в sum_flows_from_tree
 # folder = "Winnipeg-Asymmetric"
 # net_name = 'Winnipeg-Asym_net'
 # traffic_mat_name = "Winnipeg-Asym_trips"
@@ -83,12 +90,12 @@ networks_path = Path("./TransportationNetworks")
 # net_name = 'Hessen-Asym_net'
 # traffic_mat_name = "Hessen-Asym_trips"
 
-# rho = 0 
+# rho = 0
 # folder = "GoldCoast"
 # net_name = 'Goldcoast_network_2016_01'
 # traffic_mat_name = "Goldcoast_trips_2016_01"
 
-#Key error
+# Key error
 # folder = "Sydney"
 # net_name = 'Sydney_net'
 # traffic_mat_name = "Sydney_trips"
@@ -106,8 +113,6 @@ networks_path = Path("./TransportationNetworks")
 # folders.append("chicago-regional")
 # net_names.append("ChicagoRegional_net")
 # traffic_mat_names.append("ChicagoRegional_trips")
-
-
 
 
 # print(type(print(beckmann_model.correspondences)))
@@ -143,63 +148,63 @@ networks_path = Path("./TransportationNetworks")
 # raise Exception('STOP')
 
 ## Stochastic correspondences FW (SCFW)
- 
 
-# list_methods.append((stochastic_correspondences_averaging_frank_wolfe ,f'stochastic correspondences averaging FW  corrs = {cnt/ num_of_sources}' , 
+
+# list_methods.append((stochastic_correspondences_averaging_frank_wolfe ,f'stochastic correspondences averaging FW  corrs = {cnt/ num_of_sources}' ,
 #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':False, f'count_random_correspondences': cnt }  ))
 
-# list_methods.append((stochastic_correspondences_averaging_frank_wolfe ,f'stochastic correspondences averaging FW linesearch corrs = {cnt/ num_of_sources}' , 
+# list_methods.append((stochastic_correspondences_averaging_frank_wolfe ,f'stochastic correspondences averaging FW linesearch corrs = {cnt/ num_of_sources}' ,
 #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True, 'count_random_correspondences': cnt }  ))
 
 
-# list_methods.append((stochastic_correspondences_frank_wolfe ,f'stochastic correspondences FW corrs = {cnt/ num_of_sources}' , 
+# list_methods.append((stochastic_correspondences_frank_wolfe ,f'stochastic correspondences FW corrs = {cnt/ num_of_sources}' ,
 #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':False, 'count_random_correspondences': cnt }  ))
 
-# list_methods.append((frank_wolfe ,'frank_wolfe' , 
+# list_methods.append((frank_wolfe ,'frank_wolfe' ,
 #     {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False} ))
 
 
 ## Stochastic correspondences FW (SCFW) linesearch
 # for cnt in [100]:
-#     list_methods.append((stochastic_correspondences_frank_wolfe ,'stochastic correspondences FW linesearch' , 
+#     list_methods.append((stochastic_correspondences_frank_wolfe ,'stochastic correspondences FW linesearch' ,
 #         {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False ,'linesearch':True, 'count_random_correspondences': cnt }  ))
 
 ## FUKUSHIMA FW
 
 # weight_param = [0.1]
 # for weight in weight_param :
-#     list_methods.append((fukushima_frank_wolfe ,'fukushima_frank_wolfe linesearch weighted =' + str(weight) , 
+#     list_methods.append((fukushima_frank_wolfe ,'fukushima_frank_wolfe linesearch weighted =' + str(weight) ,
 #         {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False , 'linesearch': True  , 'weight_parameter' : weight  } ))
 # cnts = [4,5,6]
 # for cnt in cnts :
-#     list_methods.append((fukushima_frank_wolfe ,'fukushima_frank_wolfe linesearch N =' + str(cnt) , 
+#     list_methods.append((fukushima_frank_wolfe ,'fukushima_frank_wolfe linesearch N =' + str(cnt) ,
 #         {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False , 'linesearch': True  , 'cnt_directional' : cnt  } ))
 
 ##NFW
 # cnts = [3]
 # for cnt in cnts :
-#     list_methods.append((N_conjugate_frank_wolfe ,'N_conjugate_frank_wolfe linesearch N =' + str(cnt) , 
+#     list_methods.append((N_conjugate_frank_wolfe ,'N_conjugate_frank_wolfe linesearch N =' + str(cnt) ,
 #         {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False , 'linesearch': True  , 'cnt_conjugates' : cnt  } ))
 
 # ##BCFW linesearch
-# list_methods.append((Bi_conjugate_frank_wolfe ,'Bi_conjugate_frank_wolfe linesearch' , 
+# list_methods.append((Bi_conjugate_frank_wolfe ,'Bi_conjugate_frank_wolfe linesearch' ,
 #     {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False , 'linesearch': True } ))
 # # ##CFWM linesearch
-# list_methods.append((conjugate_frank_wolfe ,'conjugate_frank_wolfe linesearch' , 
+# list_methods.append((conjugate_frank_wolfe ,'conjugate_frank_wolfe linesearch' ,
 #     {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False , 'linesearch': True  ,'alpha_default' : 0.6} ))
-# # ##CFWM 
-# list_methods.append((conjugate_frank_wolfe ,'conjugate_frank_wolfe' , 
+# # ##CFWM
+# list_methods.append((conjugate_frank_wolfe ,'conjugate_frank_wolfe' ,
 #     {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False} ))
 # # ## FWM
-# list_methods.append((frank_wolfe ,'frank_wolfe' , 
+# list_methods.append((frank_wolfe ,'frank_wolfe' ,
 #     {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False} ))
 # # # # ## FWM linesearch
-# list_methods.append((frank_wolfe ,'frank_wolfe linesearch' , 
+# list_methods.append((frank_wolfe ,'frank_wolfe linesearch' ,
 #     {'eps_abs' : eps_abs , 'max_iter':max_iter , 'stop_by_crit': False ,'linesearch':True}  ))
 # # method , name , solver_kwargs = list_methods[0]
 # # result = test.run_method(method , name , solver_kwargs , beckmann_model ,city_name = folder , max_iter = max_iter)
 
-# # dgaps =result[0][0]['duality_gap'] 
+# # dgaps =result[0][0]['duality_gap']
 # # steps = result[1]
 
 
@@ -244,15 +249,14 @@ net_names.append("ChicagoSketch_net")
 traffic_mat_names.append("ChicagoSketch_trips")
 
 
-
-
-
 for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_names):
-    ## LOAD CITY 
-    beckmann_model , city_info = test.init_city(networks_path=networks_path ,folder=folder ,net_name=net_name,traffic_mat_name=traffic_mat_name)
-    eps_abs = city_info['eps_abs']
+    ## LOAD CITY
+    beckmann_model, city_info = test.init_city(
+        networks_path=networks_path, folder=folder, net_name=net_name, traffic_mat_name=traffic_mat_name
+    )
+    eps_abs = city_info["eps_abs"]
 
-    print('Number of sources' , len(beckmann_model.correspondences.sources))
+    print("Number of sources", len(beckmann_model.correspondences.sources))
     num_of_sources = len(beckmann_model.correspondences.sources)
     node_traffic = beckmann_model.correspondences.node_traffic_mat
 
@@ -261,20 +265,56 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
     max_time = 1200
 
     list_methods = []
-    for cnt in [ int(num_of_sources/10)]:
-        list_methods.append((stochastic_correspondences_frank_wolfe ,f'stochastic correspondences FW linesearch corrs = {cnt/ num_of_sources}' , 
-            {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True, 'count_random_correspondences': cnt }  ))
-        
-        list_methods.append((stochastic_correspondences_frank_wolfe ,f'stochastic correspondences FW linesearch weighted corrs = {cnt/ num_of_sources}' , 
-            {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'stop_by_crit': False ,'linesearch':True, 'weighted': True, 'count_random_correspondences': cnt }  ))
-        
-        list_methods.append((frank_wolfe ,'frank_wolfe linesearch' , 
-            {'eps_abs' : eps_abs , 'max_iter': max_iter , 'max_time': max_time , 'linesearch' : True, 'stop_by_crit': False} ))
+    # list_methods.append((ustm, f"ustm", {"eps_abs": eps_abs, "max_iter": max_iter, "stop_by_crit": False}))
+    for cnt in [int(num_of_sources / 10)]:
+        list_methods.append(
+            (
+                stochastic_correspondences_frank_wolfe,
+                f"stochastic correspondences FW linesearch corrs = {cnt/ num_of_sources}",
+                {
+                    "eps_abs": eps_abs,
+                    "max_iter": max_iter,
+                    "max_time": max_time,
+                    "stop_by_crit": False,
+                    "linesearch": True,
+                    "count_random_correspondences": cnt,
+                },
+            )
+        )
 
+        list_methods.append(
+            (
+                stochastic_correspondences_frank_wolfe,
+                f"stochastic correspondences FW linesearch weighted corrs = {cnt/ num_of_sources}",
+                {
+                    "eps_abs": eps_abs,
+                    "max_iter": max_iter,
+                    "max_time": max_time,
+                    "stop_by_crit": False,
+                    "linesearch": True,
+                    "weighted": True,
+                    "count_random_correspondences": cnt,
+                },
+            )
+        )
 
-    experiments = test.run_experiment(list_methods , model=beckmann_model, city_name=folder , max_iter=max_iter)
+        list_methods.append(
+            (
+                frank_wolfe,
+                "frank_wolfe linesearch",
+                {
+                    "eps_abs": eps_abs,
+                    "max_iter": max_iter,
+                    "max_time": max_time,
+                    "linesearch": True,
+                    "stop_by_crit": False,
+                },
+            )
+        )
+
+    experiments = test.run_experiment(list_methods, model=beckmann_model, city_name=folder, max_iter=max_iter)
 
     # #DISPLAY RESULTS
-    test.plot( experiments , name_output_values=['relative_gap'] , save=True  ,time_iters=True)
+    test.plot(experiments, name_output_values=["relative_gap"], save=True, time_iters=True)
 # test.plot( experiments , name_output_values=['primal', 'relative_gap'] , save=False  ,time_iters=False)
 # test.plot( experiments , name_output_values=['primal'] , save=False  ,time_iters=True,loglog=False,last_quantile=1)
