@@ -9,9 +9,7 @@ np.set_printoptions(suppress=True)
 eps = 1e-6
 
 
-def d_ij(
-    lambda_l_i: np.ndarray, lambda_w_j: np.ndarray, gammaT_ij: np.ndarray
-) -> np.ndarray:
+def d_ij(lambda_l_i: np.ndarray, lambda_w_j: np.ndarray, gammaT_ij: np.ndarray) -> np.ndarray:
     return np.exp(-(1 + gammaT_ij + lambda_w_j + lambda_l_i[:, np.newaxis]))
 
 
@@ -102,13 +100,9 @@ class Sinkhorn:
     ) -> Tuple[np.ndarray, np.ndarray]:
         if k % 2 == 0:
             # print(lambda_w_tj.shape, gammaT_tij.shape, self.L_ti.shape)
-            lambda_l_i = numba_logsumexp_stable(
-                -lambda_w_j[np.newaxis, :] - 1 - gammaT_ij
-            ) - np.log(self.L_i)
+            lambda_l_i = numba_logsumexp_stable(-lambda_w_j[np.newaxis, :] - 1 - gammaT_ij) - np.log(self.L_i)
         else:
-            lambda_w_j = numba_logsumexp_stable(
-                (-lambda_l_i[:, np.newaxis] - 1 - gammaT_ij).T
-            ) - np.log(self.W_j)
+            lambda_w_j = numba_logsumexp_stable((-lambda_l_i[:, np.newaxis] - 1 - gammaT_ij).T) - np.log(self.W_j)
 
         return lambda_w_j, lambda_l_i
 
@@ -159,9 +153,7 @@ class Sinkhorn:
                 if self._criteria(lambda_l_i, lambda_w_j, gammaT_ij):
                     break
 
-            lambda_w_j, lambda_l_i = self._sinkhorn_iteration(
-                k, gammaT_ij, lambda_w_j, lambda_l_i
-            )
+            lambda_w_j, lambda_l_i = self._sinkhorn_iteration(k, gammaT_ij, lambda_w_j, lambda_l_i)
 
             k += 1
             if k == self.max_iter:
@@ -169,19 +161,13 @@ class Sinkhorn:
 
         return d_ij(lambda_l_i, lambda_w_j, gammaT_ij), lambda_l_i, lambda_w_j
 
-    def _criteria(
-        self, lambda_l_i: np.ndarray, lambda_w_j: np.ndarray, gammaT_ij: np.ndarray
-    ) -> bool:
+    def _criteria(self, lambda_l_i: np.ndarray, lambda_w_j: np.ndarray, gammaT_ij: np.ndarray) -> bool:
         traffic_mat = d_ij(lambda_l_i, lambda_w_j, gammaT_ij)
         grad_l = traffic_mat.sum(axis=1) - self.L_i
         grad_w = traffic_mat.sum(axis=0) - self.W_j
         dual_grad = np.hstack((grad_l, grad_w))
 
-        dual_grad_norm = np.linalg.norm(
-            dual_grad
-        )  # equal to constraints violation norm
-        inner_prod = (
-            -np.hstack((lambda_l_i, lambda_w_j)) @ dual_grad
-        )  # upper bound for f(x_k) - f(x^*)
+        dual_grad_norm = np.linalg.norm(dual_grad)  # equal to constraints violation norm
+        inner_prod = -np.hstack((lambda_l_i, lambda_w_j)) @ dual_grad  # upper bound for f(x_k) - f(x^*)
 
         return dual_grad_norm < self.eps and inner_prod < self.eps
