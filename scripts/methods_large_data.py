@@ -233,21 +233,21 @@ folders.append("Birmingham-England")
 net_names.append("Birmingham_Net")
 traffic_mat_names.append("Birmingham_Trips")
 
-# folders.append("chicago-regional")
-# net_names.append("ChicagoRegional_net")
-# traffic_mat_names.append("ChicagoRegional_trips")
+folders.append("chicago-regional")
+net_names.append("ChicagoRegional_net")
+traffic_mat_names.append("ChicagoRegional_trips")
 
-# folders.append("GoldCoast")
-# net_names.append("Goldcoast_network_2016_01")
-# traffic_mat_names.append("Goldcoast_trips_2016_01")
+folders.append("GoldCoast")
+net_names.append("Goldcoast_network_2016_01")
+traffic_mat_names.append("Goldcoast_trips_2016_01")
 
-# folders.append("Philadelphia")
-# net_names.append("Philadelphia_net")
-# traffic_mat_names.append("Philadelphia_trips")
+folders.append("Philadelphia")
+net_names.append("Philadelphia_net")
+traffic_mat_names.append("Philadelphia_trips")
 
-# folders.append("Chicago-Sketch")
-# net_names.append("ChicagoSketch_net")
-# traffic_mat_names.append("ChicagoSketch_trips")
+folders.append("Chicago-Sketch")
+net_names.append("ChicagoSketch_net")
+traffic_mat_names.append("ChicagoSketch_trips")
 
 
 for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_names):
@@ -263,9 +263,9 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
     # print(node_traffic)
     # print(node_traffic.shape)
     # raise Exception('TESt')
-    max_iter = 1000
+    max_iter = 11112
 
-    max_time = 15
+    max_time = 120
 
     N = 3
 
@@ -287,8 +287,7 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
             },
         )
     )
-    for cnt in [ int(num_of_sources/k ) for k in [5,10,15]  ]:
-    # for cnt in [int(num_of_sources / 5)]:
+    for cnt in [ int(num_of_sources/k ) for k in range(8,13)  ]:
         list_methods.append(
             (
                 stochastic_correspondences_frank_wolfe,

@@ -221,38 +221,22 @@ folders = []
 net_names = []
 traffic_mat_names = []
 
-# folders.append("SiouxFalls")
-# net_names.append("SiouxFalls_net")
-# traffic_mat_names.append("SiouxFalls_trips")
+folders.append("SiouxFalls")
+net_names.append("SiouxFalls_net")
+traffic_mat_names.append("SiouxFalls_trips")
 
 
 folders.append("Anaheim")
 net_names.append("Anaheim_net")
 traffic_mat_names.append("Anaheim_trips")
 
-# folders.append("")
-# net_names.append("")
-# traffic_mat_names.append("")
+folders.append("Terrassa-Asymmetric")
+net_names.append("Terrassa-Asym_net")
+traffic_mat_names.append("Terrassa-Asym_trips")
 
-# folders.append("Birmingham-England")
-# net_names.append("Birmingham_Net")
-# traffic_mat_names.append("Birmingham_Trips")
-
-# folders.append("chicago-regional")
-# net_names.append("ChicagoRegional_net")
-# traffic_mat_names.append("ChicagoRegional_trips")
-
-# folders.append("GoldCoast")
-# net_names.append("Goldcoast_network_2016_01")
-# traffic_mat_names.append("Goldcoast_trips_2016_01")
-
-# folders.append("Philadelphia")
-# net_names.append("Philadelphia_net")
-# traffic_mat_names.append("Philadelphia_trips")
-
-# folders.append("Chicago-Sketch")
-# net_names.append("ChicagoSketch_net")
-# traffic_mat_names.append("ChicagoSketch_trips")
+folders.append("Winnipeg")
+net_names.append("Winnipeg_net")
+traffic_mat_names.append("Winnipeg_trips")
 
 
 for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_names):
@@ -268,9 +252,9 @@ for folder, net_name, traffic_mat_name in zip(folders, net_names, traffic_mat_na
     # print(node_traffic)
     # print(node_traffic.shape)
     # raise Exception('TESt')
-    max_iter = 3000
+    max_iter = 11112
 
-    max_time = 1200
+    max_time = 30
 
     N = 3
 
